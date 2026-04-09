@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RIAN VAULT PRO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&family=Fira+Code:wght@400;500&display=swap');
+        
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background-color: #000000; 
+            color: #ffffff;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        .mono { font-family: 'Fira Code', monospace; }
+
+        /* Grid Layout Ke Bawah */
+        .vault-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            padding: 20px;
+        }
+
+        @media (min-width: 768px) {
+            .vault-grid { grid-template-columns: repeat(4, 1fr); }
+        }
+
+        /* Kartu Item Minimalis */
+        .rian-item {
+            background: #0d0d0d;
+            border: 1px solid #1a1a1a;
+            border-radius: 20px;
+            padding: 16px;
+            height: 150px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: all 0.2s ease;
+        }
+
+        .rian-item:active { transform: scale(0.95); }
+
+        /* Tombol Tambah Melayang (Floating) */
+        .fab {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            background: #ffffff;
+            color: #000000;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 30px rgba(255,255,255,0.2);
+            z-index: 100;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .fab:active { transform: scale(0.8) rotate(90deg); }
+
+        /* Sidebar & Overlay */
+        #sidebar {
+            position: fixed;
+            top: 0;
+            left: -100%;
+            width: 280px;
+            height: 100%;
+            background: #080808;
+            border-right: 1px solid #1a1a1a;
+            z-index: 1000;
+            transition: left 0.3s ease;
+        }
+        #sidebar.open { left: 0; }
+
+        #overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(4px);
+            z-index: 900;
+        }
+
+        textarea {
+            background: #050505 !important;
+            border: 1px solid #1a1a1a !important;
+            color: #ffffff !important;
+            resize: none;
+            outline: none;
+            font-size: 13px;
+        }
+
+        .badge { font-size: 8px; font-weight: 800; padding: 3px 8px; border-radius: 6px; text-transform: uppercase; background: #1a1a1a; width: fit-content; }
+        .badge-html { color: #ff5722; border: 1px solid #ff572233; }
+        .badge-js { color: #ffca28; border: 1px solid #ffca2833; }
+        .badge-py { color: #2196f3; border: 1px solid #2196f333; }
+
+        /* Animasi Transisi View */
+        .view-section {
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="overlay" onclick="toggleSidebar()"></div>
+
+    <!-- Floating Action Button -->
+    <button onclick="openNewFile()" class="fab">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+    </button>
+
+    <!-- Sidebar -->
+    <aside id="sidebar">
+        <div class="p-8 flex flex-col h-full">
+            <h1 class="text-xl font-black italic mb-10 tracking-tighter">RIAN VAULT</h1>
+            <nav class="space-y-3">
+                <button onclick="switchView('list')" class="w-full text-left p-4 rounded-xl bg-white text-black font-bold text-xs">Daftar File</button>
+                <button onclick="openNewFile()" class="w-full text-left p-4 rounded-xl bg-zinc-900 text-zinc-400 font-bold text-xs hover:text-white">Tambah Baru</button>
+            </nav>
+        </div>
+    </aside>
+
+    <!-- Header -->
+    <header class="p-5 flex items-center justify-between border-b border-zinc-900 bg-black sticky top-0 z-50">
+        <div class="flex items-center gap-4">
+            <button onclick="toggleSidebar()" class="p-2 bg-zinc-900 rounded-xl text-white">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <h1 class="text-md font-black uppercase italic tracking-tighter">BY RIAN</h1>
+        </div>
+        <div id="counter" class="text-[9px] font-bold text-zinc-600 tracking-widest uppercase">0 FILE</div>
+    </header>
+
+    <main class="flex-1">
+        <!-- Tampilan Utama (Daftar File) -->
+        <section id="view-list" class="view-section">
+            <div class="vault-grid" id="dataGrid"></div>
+            <div id="emptyState" class="hidden text-center py-40 opacity-20">
+                <p class="text-[10px] font-bold uppercase tracking-[0.5em]">Gudang Kosong</p>
+            </div>
+        </section>
+
+        <!-- Tampilan Editor (Buat Baru & Edit) -->
+        <section id="view-form" class="hidden fixed inset-0 bg-black z-[2000] p-6 flex flex-col view-section">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h2 id="formTitle" class="text-2xl font-black uppercase italic tracking-tighter">BUAT BARU</h2>
+                    <p id="fileSub" class="text-[9px] font-bold text-zinc-600 uppercase tracking-widest mt-1">Simpan script baru ke vault</p>
+                </div>
+                <button onclick="switchView('list')" class="p-3 bg-zinc-900 rounded-2xl text-white">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            
+            <textarea id="codeInput" class="flex-1 w-full rounded-3xl p-6 text-sm mono mb-6 border border-zinc-900 focus:border-white transition-colors" placeholder="Tulis atau tempel kode Bos di sini..."></textarea>
+            
+            <div class="flex gap-4">
+                <input type="hidden" id="editId">
+                <button onclick="saveData()" class="flex-1 py-5 bg-white text-black font-extrabold uppercase text-[11px] rounded-2xl shadow-xl active:scale-95 transition-all tracking-[0.1em]">
+                    Simpan Sekarang
+                </button>
+                <button onclick="deleteItem()" id="deleteBtn" class="px-8 py-5 bg-zinc-900 text-red-500 font-bold uppercase text-[11px] rounded-2xl border border-zinc-800 hidden">
+                    Hapus
+                </button>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        let db;
+        const DB_NAME = "RianVault_Final_Fixed";
+        const STORE_NAME = "scripts";
+
+        const request = indexedDB.open(DB_NAME, 1);
+        request.onupgradeneeded = (e) => {
+            db = e.target.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                db.createObjectStore(STORE_NAME, { keyPath: "id", autoIncrement: true });
+            }
+        };
+        request.onsuccess = (e) => {
+            db = e.target.result;
+            loadData();
+        };
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('overlay').style.display = document.getElementById('sidebar').classList.contains('open') ? 'block' : 'none';
+        }
+
+        function switchView(view) {
+            document.getElementById('view-list').classList.toggle('hidden', view !== 'list');
+            document.getElementById('view-form').classList.toggle('hidden', view !== 'form');
+            if (document.getElementById('sidebar').classList.contains('open')) toggleSidebar();
+        }
+
+        // Fungsi Khusus Buat File Baru
+        function openNewFile() {
+            document.getElementById('editId').value = '';
+            document.getElementById('codeInput').value = '';
+            document.getElementById('formTitle').innerText = 'BUAT BARU';
+            document.getElementById('fileSub').innerText = 'Simpan script baru ke vault';
+            document.getElementById('deleteBtn').classList.add('hidden');
+            switchView('form');
+        }
+
+        function detectLang(code) {
+            const c = code.trim().toLowerCase();
+            if (c.includes('<html') || c.includes('<!doctype')) return 'HTML';
+            if (c.includes('def ') || c.includes('import ')) return 'PYTHON';
+            if (c.includes('const ') || c.includes('function ')) return 'JS';
+            return 'TEXT';
+        }
+
+        function saveData() {
+            const code = document.getElementById('codeInput').value;
+            const editId = document.getElementById('editId').value;
+            if (!code.trim()) return;
+
+            const entry = {
+                code,
+                lang: detectLang(code),
+                date: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+            };
+
+            const tx = db.transaction(STORE_NAME, "readwrite");
+            const store = tx.objectStore(STORE_NAME);
+            
+            if (editId) {
+                entry.id = parseInt(editId);
+                store.put(entry);
+            } else {
+                store.add(entry);
+            }
+
+            tx.oncomplete = () => {
+                switchView('list');
+                loadData();
+            };
+        }
+
+        function loadData() {
+            const grid = document.getElementById('dataGrid');
+            const empty = document.getElementById('emptyState');
+            grid.innerHTML = '';
+
+            const tx = db.transaction(STORE_NAME, "readonly");
+            const store = tx.objectStore(STORE_NAME);
+            const req = store.getAll();
+
+            req.onsuccess = () => {
+                const data = req.result.reverse();
+                document.getElementById('counter').innerText = `${data.length} FILE`;
+                
+                if (data.length === 0) {
+                    empty.classList.remove('hidden');
+                } else {
+                    empty.classList.add('hidden');
+                    data.forEach(item => {
+                        const card = document.createElement('div');
+                        card.className = "rian-item";
+                        card.innerHTML = `
+                            <div class="flex flex-col gap-2">
+                                <span class="badge badge-${item.lang.toLowerCase()}">${item.lang}</span>
+                                <p class="text-[10px] font-bold text-zinc-700 leading-tight">Dibuat pada<br>${item.date}</p>
+                            </div>
+                            <button onclick="editItem(${item.id})" class="w-full bg-white text-black py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-90 transition-transform">Buka & Edit</button>
+                        `;
+                        grid.appendChild(card);
+                    });
+                }
+            };
+        }
+
+        function editItem(id) {
+            const tx = db.transaction(STORE_NAME, "readonly");
+            const store = tx.objectStore(STORE_NAME);
+            const req = store.get(id);
+            req.onsuccess = () => {
+                const item = req.result;
+                document.getElementById('editId').value = item.id;
+                document.getElementById('codeInput').value = item.code;
+                document.getElementById('formTitle').innerText = 'EDIT FILE';
+                document.getElementById('fileSub').innerText = `Mengedit ${item.lang} - ID #${item.id}`;
+                document.getElementById('deleteBtn').classList.remove('hidden');
+                switchView('form');
+            };
+        }
+
+        function deleteItem() {
+            const id = parseInt(document.getElementById('editId').value);
+            if (!confirm("Hapus file ini selamanya?")) return;
+            const tx = db.transaction(STORE_NAME, "readwrite");
+            tx.objectStore(STORE_NAME).delete(id);
+            tx.oncomplete = () => {
+                switchView('list');
+                loadData();
+            };
+        }
+    </script>
+</body>
+</html>
